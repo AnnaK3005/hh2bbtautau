@@ -3,3 +3,16 @@
 *.jpg filter=lfs diff=lfs merge=lfs -text
 *.jpeg filter=lfs diff=lfs merge=lfs -text
 *.root filter=lfs diff=lfs merge=lfs -text
+hbt/ml/dnn_models/ filter=lfs diff=lfs merge=lfs -text
+hbt/ml/dnn_models/very_simple_model_15_epochs_6_layers_128_nodes/ filter=lfs diff=lfs merge=lfs -text
+hbt/ml/dnn_models/very_simple_model_30_epochs/ filter=lfs diff=lfs merge=lfs -text
+hbt/ml/dnn_models/very_simple_model_30_epochs_6_layers_128_nodes/ filter=lfs diff=lfs merge=lfs -text
+hbt/ml/dnn_models/very_simple_model_3_epochs_6_layers/ filter=lfs diff=lfs merge=lfs -text
+hbt/ml/dnn_models/plots/ filter=lfs diff=lfs merge=lfs -text
+hbt/ml/dnn_models/very_simple_model_1/ filter=lfs diff=lfs merge=lfs -text
+hbt/ml/dnn_models/very_simple_model_100_epochs_6_layers_128_nodes/ filter=lfs diff=lfs merge=lfs -text
+hbt/ml/dnn_models/very_simple_model_15_epochs_6_layers/ filter=lfs diff=lfs merge=lfs -text
+hbt/ml/dnn_models/very_simple_model_15_epochs_6_layers_64_nodes/ filter=lfs diff=lfs merge=lfs -text
+hbt/ml/dnn_models/very_simple_model_3_epochs_6_layers_128_nodes/ filter=lfs diff=lfs merge=lfs -text
+hbt/ml/dnn_models/very_simple_model_3_epochs_6_layers_64_nodes/ filter=lfs diff=lfs merge=lfs -text
+hbt/ml/dnn_models/very_simple_model_50_epochs_6_layers_128_nodes/ filter=lfs diff=lfs merge=lfs -text

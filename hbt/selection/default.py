@@ -25,6 +25,7 @@ from hbt.selection.trigger import trigger_selection
 from hbt.selection.lepton import lepton_selection
 from hbt.selection.jet import jet_selection
 from hbt.production.features import cutflow_features
+from hbt.production.gen_lep_tau import gen_lep_tau
 
 
 np = maybe_import("numpy")
@@ -35,12 +36,12 @@ ak = maybe_import("awkward")
     uses={
         json_filter, met_filters, trigger_selection, lepton_selection, jet_selection, mc_weight,
         pdf_weights, murmuf_weights, pu_weight, btag_weights, process_ids, cutflow_features,
-        increment_stats, attach_coffea_behavior,
+        increment_stats, attach_coffea_behavior, gen_lep_tau,
     },
     produces={
         trigger_selection, lepton_selection, jet_selection, mc_weight,
         pdf_weights, murmuf_weights, pu_weight, btag_weights, process_ids, cutflow_features,
-        increment_stats,
+        increment_stats, gen_lep_tau,
     },
     sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh"),
     exposed=True,
@@ -171,4 +172,5 @@ def default(
         **kwargs,
     )
 
+    events = self[gen_lep_tau](events, **kwargs)
     return events, results

@@ -655,16 +655,24 @@ def add_config(
             "Electron.pt", "Electron.eta", "Electron.phi", "Electron.mass", "Electron.deltaEtaSC",
             "Electron.pfRelIso03_all",
             "Muon.pt", "Muon.eta", "Muon.phi", "Muon.mass", "Muon.pfRelIso04_all",
-            "Tau.pt", "Tau.eta", "Tau.phi", "Tau.mass", "Tau.idDeepTau2017v2p1VSe",
-            "Tau.idDeepTau2017v2p1VSmu", "Tau.idDeepTau2017v2p1VSjet", "Tau.genPartFlav",
-            "Tau.decayMode",
             "MET.pt", "MET.phi", "MET.significance", "MET.covXX", "MET.covXY", "MET.covYY",
             "PV.npvs",
             # columns added during selection
             "channel_id", "process_id", "category_ids", "mc_weight", "pdf_weight*", "murmuf_weight*",
             "leptons_os", "tau2_isolated", "single_triggered", "cross_triggered",
             "deterministic_seed", "pu_weight*", "btag_weight*", "cutflow.*",
-        },
+            "GenPart.*",
+        } | {f"{field}.*"
+             for field in [
+                 "Tau", "Tau_pos", "Tau_neg", "GenTauEle", "GenEleFromTau", "ElectronFromTau",
+                "GenTauMuon",
+                "GenMuonFromTau",
+                "MuonFromTau",
+            ]
+            #  for var in ["pt", "eta", "phi", "mass", "idDeepTau2017v2p1VSe",
+            # "idDeepTau2017v2p1VSmu", "idDeepTau2017v2p1VSjet", "genPartFlav",
+            # "decayMode"]
+             },
         "cf.MergeSelectionMasks": {
             "normalization_weight", "process_id", "category_ids", "cutflow.*",
         },
@@ -672,7 +680,8 @@ def add_config(
             "*",
         },
     })
-
+    # from IPython import embed
+    # embed()
     # event weight columns as keys in an OrderedDict, mapped to shift instances they depend on
     get_shifts = functools.partial(get_shifts_from_sources, cfg)
     cfg.x.event_weights = DotDict({

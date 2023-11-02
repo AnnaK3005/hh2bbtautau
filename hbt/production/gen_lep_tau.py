@@ -60,10 +60,9 @@ def gen_lep_tau(self, events, **kwargs):
     # find GenPartons (probably GenElectrons, electrons on generator level before detector simulation)
     # that can be matched to the Electrons on detector level (i.e. after detector simulation)
     # use matching from coffea, which is DeltaR based
-    gen_matched_ele = events.Electron.matched_gen.pdgId
+    gen_matched_ele = events.Electron.matched_gen
     
-    from IPython import embed
-    embed()
+
     
     # ask GenPartons for parents, i.e. the particles that produced the GenPartons in their decay
     gen_matched_ele_tau = gen_matched_ele.distinctParent

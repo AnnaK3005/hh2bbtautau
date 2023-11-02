@@ -13,7 +13,6 @@ from columnflow.util import DotDict, maybe_import
 from hbt.util import IF_NANO_V9, IF_NANO_V11
 from hbt.config.util import Trigger
 
-
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
 
@@ -360,6 +359,7 @@ def tau_selection_init(self: Selector) -> None:
         electron_selection, muon_selection, tau_selection,
         # new columns
         "channel_id", "leptons_os", "tau2_isolated", "single_triggered", "cross_triggered",
+        #"Tau_pos.*"
     },
 )
 def lepton_selection(
@@ -503,12 +503,22 @@ def lepton_selection(
             cross_triggered = ak.where(where & is_cross, True, cross_triggered)
             sel_tau_indices = ak.where(where, tau_indices, sel_tau_indices)
 
+    # from IPython import embed
+    # embed()
+    sel_tau_pos_indices_from_sel_tau = events.Tau[sel_tau_indices].charge >0
+    sel_tau_pos_indices = sel_tau_indices[sel_tau_pos_indices_from_sel_tau]
+    
+    sel_tau_neg_indices_from_sel_tau = events.Tau[sel_tau_indices].charge<0
+    sel_tau_neg_indices = sel_tau_indices[sel_tau_neg_indices_from_sel_tau]
+
     # some final type conversions
     channel_id = ak.values_astype(channel_id, np.uint8)
     leptons_os = ak.fill_none(leptons_os, False)
     sel_electron_indices = ak.values_astype(sel_electron_indices, np.int32)
     sel_muon_indices = ak.values_astype(sel_muon_indices, np.int32)
     sel_tau_indices = ak.values_astype(sel_tau_indices, np.int32)
+    sel_tau_pos_indices = ak.values_astype(sel_tau_pos_indices, np.int32)
+    sel_tau_neg_indices = ak.values_astype(sel_tau_neg_indices, np.int32)
 
     # save new columns
     events = set_ak_column(events, "channel_id", channel_id)
@@ -530,6 +540,8 @@ def lepton_selection(
             },
             "Tau": {
                 "Tau": sel_tau_indices,
+                "Tau_pos": sel_tau_pos_indices,
+                "Tau_neg": sel_tau_neg_indices,
             },
         },
         aux={

@@ -145,7 +145,7 @@ if __name__ == '__main__':
 
     
     
-    model_name = "very_simple_model_3_epochs_6_layers_128_nodes"
+    model_name = "very_simple_model_100_epochs_6_layers_128_nodes"
     model = keras.Sequential(
         [
             layers.Dense(128, activation="relu", name="layer1"),
@@ -168,7 +168,7 @@ if __name__ == '__main__':
                 ])
     # from IPython import embed
     # embed()
-    history = model.fit(train, epochs=3)
+    history = model.fit(train, validation_data=test, epochs=100)
 
     
     dnn_output_path = os.path.join(thisdir, "dnn_models")
@@ -177,4 +177,6 @@ if __name__ == '__main__':
     final_path = os.path.join(dnn_output_path, f"{model_name}")
     model.save(final_path)
     
-    from IPython import embed; embed()
+    # save training history
+    hist_array = ak.Array(history.history)
+    ak.to_parquet(hist_array, os.path.join(final_path, "history.parquet"))

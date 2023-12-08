@@ -66,7 +66,11 @@ def cutflow_features(
     events = self[category_ids](events, **kwargs)
 
     # apply per-object selections
-    selected_jet = events.Jet[object_masks["Jet"]["Jet"]]
+    if object_masks.get("Jet"):
+        if object_masks["Jet"].get("Jet"):
+            selected_jet = events.Jet[object_masks["Jet"]["Jet"]]
+    else: 
+        selected_jet = events.Jet
 
     # add feature columns
     events = set_ak_column_i32(events, "cutflow.n_jet", ak.num(events.Jet, axis=1))

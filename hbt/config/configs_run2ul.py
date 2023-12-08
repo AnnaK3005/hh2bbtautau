@@ -584,7 +584,7 @@ def add_config(
             # lumi files
             "lumi": {
                 "golden": ("/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions16/13TeV/Legacy_2016/Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt", "v1"),  # noqa
-                "normtag": ("/afs/cern.ch/user/l/lumipro/public/Normtags/normtag_PHYSICS.json", "v1"),
+                "normtag": ("/afs/cern.ch/user/n/nprouvos/public/normtag_PHYSICS.json", "v1"),
             },
 
             # https://twiki.cern.ch/twiki/bin/viewauth/CMS/PileupJSONFileforData?rev=45#Pileup_JSON_Files_For_Run_II
@@ -603,7 +603,7 @@ def add_config(
             # lumi files
             "lumi": {
                 "golden": ("/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions17/13TeV/Legacy_2017/Cert_294927-306462_13TeV_UL2017_Collisions17_GoldenJSON.txt", "v1"),  # noqa
-                "normtag": ("/afs/cern.ch/user/l/lumipro/public/Normtags/normtag_PHYSICS.json", "v1"),
+                "normtag": ("/afs/desy.de/user/p/prouvost/public/normtag_PHYSICS.json", "v1"),
             },
 
             # https://twiki.cern.ch/twiki/bin/viewauth/CMS/PileupJSONFileforData?rev=45#Pileup_JSON_Files_For_Run_II
@@ -622,7 +622,7 @@ def add_config(
             # lumi files
             "lumi": {
                 "golden": ("/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions18/13TeV/Legacy_2018/Cert_314472-325175_13TeV_Legacy2018_Collisions18_JSON.txt", "v1"),  # noqa
-                "normtag": ("/afs/cern.ch/user/l/lumipro/public/Normtags/normtag_PHYSICS.json", "v1"),
+                "normtag": ("/afs/cern.ch/user/n/nprouvos/public/normtag_PHYSICS.json", "v1"),
             },
 
             # https://twiki.cern.ch/twiki/bin/viewauth/CMS/PileupJSONFileforData?rev=45#Pileup_JSON_Files_For_Run_II
@@ -689,11 +689,11 @@ def add_config(
         "pdf_weight": get_shifts("pdf"),
         "murmuf_weight": get_shifts("murmuf"),
         "normalized_pu_weight": get_shifts("minbias_xs"),
-        "normalized_njet_btag_weight": get_shifts(*(f"btag_{unc}" for unc in btag_uncs)),
-        "electron_weight": get_shifts("e"),
-        "muon_weight": get_shifts("mu"),
-        "tau_weight": get_shifts(*(f"tau_{unc}" for unc in tau_uncs)),
-        "tau_trigger_weight": get_shifts("etau_trigger", "mutau_trigger", "tautau_trigger"),
+        #"normalized_njet_btag_weight": get_shifts(*(f"btag_{unc}" for unc in btag_uncs)),
+        #"electron_weight": get_shifts("e"),
+        #"muon_weight": get_shifts("mu"),
+        #"tau_weight": get_shifts(*(f"tau_{unc}" for unc in tau_uncs)),
+        #"tau_trigger_weight": get_shifts("etau_trigger", "mutau_trigger", "tautau_trigger"),
     })
 
     # define per-dataset event weights

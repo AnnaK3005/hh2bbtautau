@@ -2,19 +2,19 @@ import awkward as ak
 import matplotlib.pyplot as plt
 import numpy as np
 
-model_name = "100_epochs_6_layers_128_nodes"
-data_path = "/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/very_simple_model_"+ model_name + "/history.parquet"
+model_name = "5_layers_10_nodes_100_epochs_sigmoid_tt_1_hh_0"
+data_path = "/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/gen_model_"+ model_name + "/history.parquet"
 history_array = ak.from_parquet(data_path)
 
 
 
-y= np.array(history_array["binary_accuracy"])
-x= np.arange(1,len(y)+1)
-plt.plot(x,y, label="binary accuracy")
-a= np.array(history_array["val_binary_accuracy"])
-plt.plot(a, label="validation binary accuracy")
+y= np.array(history_array["loss"])
+x= np.arange(0,len(y))
+plt.plot(x,y, label="loss")
+a= np.array(history_array["val_loss"])
+plt.plot(a, label="validation loss")
 plt.legend(loc='upper left')
-plt.savefig('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/plots/'+ model_name +"_binary_accuracy_and_val_binary_accuracy")
+plt.savefig('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/plots/gen_model/loss_and_accuracy/gen_model_'+ model_name +"_loss_and_val_loss")
 #def plot_variable(variable, variable2):
     #y= np.array(history_array[variable])
     #x= np.arange(1,len(y)+1)
@@ -27,8 +27,7 @@ plt.savefig('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_model
  #   plt.show() 
 #    plt.savefig('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/plots/'+ model_name +"_"+variable)
 
-    
-#plot_variable("loss", "val_loss")
+
 
 
 #loss

@@ -93,7 +93,16 @@ tt_dl_weights_neg = calculate_event_weights(data_tt_dl, count_tt_dl_mask_neg, ge
 hh_weights_pos = calculate_event_weights(data_hh_ggf, count_hh_mask_pos, gen_z_pos_e_hh_ggf)
 tt_dl_weights_pos = calculate_event_weights(data_tt_dl, count_tt_dl_mask_pos, gen_z_pos_e_tt_dl)
 
-def add_target_to_array(variable, *args, target_value=0, dtype=np.int8):
+
+
+def add_charge_information(data,variable):
+    positive_mask = data.ElectronFromTau.charge > 0
+    charge_array = ak.full_like(data[variable], 0)
+    charge_array = charge_array[positive_mask] = 1
+    flat_charge_array = ak.flatten(charge_array, axis=-1)
+    return flat_charge_array
+
+def add_target_to_array(variable, *args, charge_value, target_value=0, dtype=np.int8):
     # first, flatten the input arrays
     flat_variables = ak.flatten(variable, axis=-1)
     flat_args = [ak.flatten(x, axis=-1) for x in args]
@@ -101,24 +110,27 @@ def add_target_to_array(variable, *args, target_value=0, dtype=np.int8):
     # now create new array with same strucutre as main input,
     # which is filled with target value and has data type dtype
     target_array = ak.full_like(flat_variables, target_value, dtype=dtype)
+    charge_array = ak.full_like(flat_variables, charge_value, dtype=dtype)
     
     # finally stack everything together
-    variable_plus_zero=np.column_stack((flat_variables, target_array, *flat_args))
+    variable_plus_zero=np.column_stack((flat_variables, charge_array, target_array, *flat_args))
     return variable_plus_zero
 
 
-gen_z_neg_e_hh_ggf_plus_one = add_target_to_array(gen_z_neg_e_hh_ggf, hh_weights_neg, target_value=0)
-gen_z_neg_e_tt_dl_plus_zero = add_target_to_array(gen_z_neg_e_tt_dl, tt_dl_weights_neg, target_value=1)
+gen_z_neg_e_hh_ggf_plus_one = add_target_to_array(gen_z_neg_e_hh_ggf, hh_weights_neg, charge_value=1, target_value=0)
+gen_z_neg_e_tt_dl_plus_zero = add_target_to_array(gen_z_neg_e_tt_dl, tt_dl_weights_neg, charge_value=1, target_value=1)
 
-gen_z_pos_e_hh_ggf_plus_one = add_target_to_array(gen_z_pos_e_hh_ggf, hh_weights_pos, target_value=0)
-gen_z_pos_e_tt_dl_plus_zero = add_target_to_array(gen_z_pos_e_tt_dl, tt_dl_weights_pos, target_value=1)
+gen_z_pos_e_hh_ggf_plus_one = add_target_to_array(gen_z_pos_e_hh_ggf, hh_weights_pos, charge_value=0, target_value=0)
+gen_z_pos_e_tt_dl_plus_zero = add_target_to_array(gen_z_pos_e_tt_dl, tt_dl_weights_pos, charge_value=0, target_value=1)
 
 combined_array = np.concatenate((gen_z_neg_e_hh_ggf_plus_one, gen_z_neg_e_tt_dl_plus_zero, gen_z_pos_e_hh_ggf_plus_one, gen_z_pos_e_tt_dl_plus_zero))
 
 shuffled_array= np.random.permutation(combined_array)
 
 
-input_array, output_array, weights = np.split(shuffled_array, 3, axis=1)
+z_array, charge_array, output_array, weights = np.split(shuffled_array, 4, axis=1)
+
+input_array =np.column_stack((z_array, charge_array))
 
 
 input_tensor = tf.constant(input_array)
@@ -159,8 +171,9 @@ x_train, y_train, weights_train = split_tf_dataset_into_components(train)
 x_test, y_test, weights_test = split_tf_dataset_into_components(test)
 
 
+
 epochs=100
-model_name = f"gen_model_5_layers_10_nodes_{epochs}_epochs_with_z_pos"
+model_name = f"gen_model_5_layers_10_nodes_{epochs}_epochs_with_z_pos_and_charge_information"
 model = keras.Sequential(
         [
             layers.Dense(1, activation=None, name="layer1"),
@@ -237,7 +250,7 @@ mask_class1 = y_test == 1
 y_pred = model.predict(x_test).ravel()
 output_path = os.path.join(
     thisdir,
-    'dnn_models', 'plots', 'gen_model', 'ROC_plots',
+    'dnn_models', 'plots', 'gen_model_with_z_pos', 'ROC_plots',
     model_name
 )
 draw_roc(
@@ -251,15 +264,15 @@ draw_roc(
 
 output_path = os.path.join(
     thisdir,
-    'dnn_models', 'plots', 'gen_model', 'ROC_plots', model_name +
+    'dnn_models', 'plots', 'gen_model_with_z_pos', 'ROC_plots', model_name +
     "_energy_fractions"
 )
 
 draw_roc(
-    y_test=y_test,
-    y_pred=x_test,
+    y_test=output_array,
+    y_pred=z_array,
     output_path=output_path,
-    weights=weights_test,
+    weights=weights,
     label="Energy fraction",
     style="-."
 )
@@ -273,7 +286,7 @@ def plot_loss():
     a= np.array(hist_array["val_loss"])
     plt.plot(a, label="validation loss")
     plt.legend(loc='upper left')
-    plt.savefig('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/plots/gen_model/loss_and_accuracy/gen_model_'+ model_name +"_loss_and_val_loss")
+    plt.savefig('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/plots/gen_model_with_z_pos/loss_and_accuracy/gen_model_'+ model_name +"_loss_and_val_loss")
     
 def plot_accuracy():
     y= np.array(hist_array["binary_accuracy"])
@@ -282,7 +295,7 @@ def plot_accuracy():
     a= np.array(hist_array["val_binary_accuracy"])
     plt.plot(a, label="validation binary accuracy")
     plt.legend(loc='upper left')
-    plt.savefig('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/plots/gen_model/loss_and_accuracy/gen_model_'+ model_name +"_binary_accuracy_and_val_binary_accuracy")
+    plt.savefig('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/plots/gen_model_with_z_pos/loss_and_accuracy/gen_model_'+ model_name +"_binary_accuracy_and_val_binary_accuracy")
 
 plot_loss()
 
@@ -301,7 +314,7 @@ for label, data, truth_labels in zip(
         mask = mask.flatten()
         sub_input = data[mask]
         output = model.predict(sub_input)
-        output_folder = os.path.join(thisdir, 'dnn_models', 'output_gen_model_with_z_pos')
+        output_folder = os.path.join(thisdir, 'dnn_models', 'output_gen_model_with_z_pos_charge_information')
         output_file_np = os.path.join(output_folder, f'model_output_{label}_mask{mask_value}.npy')
         np.save(output_file_np, output)
 

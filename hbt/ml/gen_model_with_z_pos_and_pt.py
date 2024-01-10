@@ -280,17 +280,17 @@ draw_roc(
 output_path = os.path.join(
     thisdir,
     'dnn_models', 'plots', 'gen_model_with_z_pos_and_pt', 'ROC_plots', model_name +
-    "_energy_fractions"
+    "_energy_fractions_with_z_pos"
 )
 
-#draw_roc(
-#    y_test=y_test,
-#    y_pred=z_array,
-#    output_path=output_path,
-#    weights=weights_test,
-#    label="Energy fraction",
-#    style="-."
-#)
+draw_roc(
+    y_test=y_test,
+    y_pred=z_array,
+    output_path=output_path,
+    weights=weights_test,
+    label="Energy fraction",
+    style="-."
+)
 
 plt.clf()
 

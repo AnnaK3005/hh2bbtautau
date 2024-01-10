@@ -115,10 +115,12 @@ gen_z_pos_e_tt_dl_plus_zero = add_target_to_array(gen_z_pos_e_tt_dl, tt_dl_weigh
 
 combined_array = np.concatenate((gen_z_neg_e_hh_ggf_plus_one, gen_z_neg_e_tt_dl_plus_zero, gen_z_pos_e_hh_ggf_plus_one, gen_z_pos_e_tt_dl_plus_zero))
 
+
+
 shuffled_array= np.random.permutation(combined_array)
 
 
-input_array, output_array, weights = np.split(shuffled_array, 3, axis=1)
+input_array, output_array, weights = np.split(combined_array, 3, axis=1)
 
 
 input_tensor = tf.constant(input_array)
@@ -132,14 +134,29 @@ dataset_weights = tf.data.Dataset.from_tensor_slices((weights_tensor))
 
 
 def split_dataset(dataset, split_ratio=0.2, batch_size=256):
-    num_samples = dataset.cardinality().numpy()
+    num_samples = len(dataset)
 
-    num_test_samples = int((1-split_ratio) * num_samples)
-    train= dataset.take(num_test_samples)
-    test = dataset.skip(num_test_samples).batch(batch_size)
-    train = train.shuffle(buffer_size=num_test_samples,reshuffle_each_iteration=True).batch(batch_size)
+    num_test_samples = int((split_ratio) * num_samples)
+    test, train  = np.split(shuffled_array, [num_test_samples])
     
     return train, test
+
+
+train, test = split_dataset(shuffled_array)
+
+
+def sort_train_data():
+    train, test = split_dataset(shuffled_array)
+    one_mask= train[:, 1] > 0
+    train_one=train[one_mask]
+    zero_mask=train[:, 1] == 0
+    train_zero = train[zero_mask]
+    train= np.concatenate((train_one, train_zero))
+    return train
+    
+train = sort_train_data()
+
+
 
 def split_tf_dataset_into_components(input):
     input_features = list()
@@ -152,15 +169,51 @@ def split_tf_dataset_into_components(input):
     return np.array(input_features), np.array(labels), np.array(weights)
         
 
-dataset_combined=tf.data.Dataset.zip((dataset_x, dataset_y, dataset_weights))
-train, test = split_dataset(dataset_combined)
-        
-x_train, y_train, weights_train = split_tf_dataset_into_components(train)
-x_test, y_test, weights_test = split_tf_dataset_into_components(test)
 
+dataset_combined=tf.data.Dataset.zip((dataset_x, dataset_y, dataset_weights))
+
+x_train = train[:,0]
+y_train = train[:,1]
+
+x_train_tf= tf.constant(train[:,0])
+x_train_tf = tf.data.Dataset.from_tensor_slices((x_train_tf))
+y_train_tf = tf.constant(train[:,1])
+y_train_tf = tf.data.Dataset.from_tensor_slices((y_train_tf))
+weights_train = tf.constant(train[:,2])
+weights_train = tf.data.Dataset.from_tensor_slices((weights_train))
+
+train = tf.data.Dataset.zip((x_train_tf, y_train_tf, weights_train))
+
+
+x_test= test[:,0]
+y_test=test[:,1]
+weights_test=test[:,2]
+
+x_test_tf= tf.constant(x_test)
+x_test_tf = tf.data.Dataset.from_tensor_slices((x_test_tf))
+y_test_tf= tf.constant(y_test)
+y_test_tf = tf.data.Dataset.from_tensor_slices((y_test_tf))
+weights_test_tf=tf.constant(weights_test)
+weights_test_tf=tf.data.Dataset.from_tensor_slices((weights_test))
+test = tf.data.Dataset.zip((x_test_tf, y_test_tf, weights_test_tf))
+
+
+train = train.batch(256)
+test = test.batch(256)
+
+train = train.map(lambda x, y, z: (tf.expand_dims(x, axis=-1),
+                                      tf.expand_dims(y, axis=-1),
+                                      tf.expand_dims(z, axis=-1)))
+
+test = test.map(lambda x, y, z: (tf.expand_dims(x, axis=-1),
+                                      tf.expand_dims(y, axis=-1),
+                                      tf.expand_dims(z, axis=-1)))
+
+#x_train, y_train, weights_train = split_tf_dataset_into_components(train)
+#x_test, y_test, weights_test = split_tf_dataset_into_components(test)
 
 epochs=100
-model_name = f"gen_model_5_layers_10_nodes_{epochs}_epochs_with_z_pos"
+model_name = f"gen_model_5_layers_10_nodes_{epochs}_epochs_with_z_pos_not_shuffled"
 model = keras.Sequential(
         [
             layers.Dense(1, activation=None, name="layer1"),
@@ -201,7 +254,7 @@ lr_scheduler_callback  = tf.keras.callbacks.ReduceLROnPlateau(
     min_lr=0,
 )
 
-history = model.fit(train, validation_data=test, epochs=epochs, callbacks=[lr_scheduler_callback])
+history = model.fit(x=train, validation_data=test, epochs=epochs, batch_size=256, callbacks=[lr_scheduler_callback])
 
     
 dnn_output_path = os.path.join(thisdir, "dnn_models")
@@ -237,7 +290,7 @@ mask_class1 = y_test == 1
 y_pred = model.predict(x_test).ravel()
 output_path = os.path.join(
     thisdir,
-    'dnn_models', 'plots', 'gen_model', 'ROC_plots',
+    'dnn_models', 'plots', 'gen_model_with_z_pos', 'ROC_plots',
     model_name
 )
 draw_roc(
@@ -251,7 +304,7 @@ draw_roc(
 
 output_path = os.path.join(
     thisdir,
-    'dnn_models', 'plots', 'gen_model', 'ROC_plots', model_name +
+    'dnn_models', 'plots', 'gen_model_with_z_pos', 'ROC_plots', model_name +
     "_energy_fractions"
 )
 
@@ -273,7 +326,7 @@ def plot_loss():
     a= np.array(hist_array["val_loss"])
     plt.plot(a, label="validation loss")
     plt.legend(loc='upper left')
-    plt.savefig('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/plots/gen_model/loss_and_accuracy/gen_model_'+ model_name +"_loss_and_val_loss")
+    plt.savefig('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/plots/gen_model_with_z_pos/loss_and_accuracy/gen_model_'+ model_name +"_loss_and_val_loss")
     
 def plot_accuracy():
     y= np.array(hist_array["binary_accuracy"])
@@ -282,7 +335,7 @@ def plot_accuracy():
     a= np.array(hist_array["val_binary_accuracy"])
     plt.plot(a, label="validation binary accuracy")
     plt.legend(loc='upper left')
-    plt.savefig('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/plots/gen_model/loss_and_accuracy/gen_model_'+ model_name +"_binary_accuracy_and_val_binary_accuracy")
+    plt.savefig('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/plots/gen_model_with_z_pos/loss_and_accuracy/gen_model_'+ model_name +"_binary_accuracy_and_val_binary_accuracy")
 
 plot_loss()
 
@@ -298,10 +351,10 @@ for label, data, truth_labels in zip(
 ):
     for mask_value in np.unique(truth_labels):
         mask = truth_labels == mask_value
-        mask = mask.flatten()
+        #mask = mask.flatten()
         sub_input = data[mask]
         output = model.predict(sub_input)
-        output_folder = os.path.join(thisdir, 'dnn_models', 'output_gen_model_with_z_pos')
+        output_folder = os.path.join(thisdir, 'dnn_models', 'output_gen_model_with_z_pos_not_shuffled')
         output_file_np = os.path.join(output_folder, f'model_output_{label}_mask{mask_value}.npy')
         np.save(output_file_np, output)
 

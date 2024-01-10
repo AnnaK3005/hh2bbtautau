@@ -25,10 +25,9 @@ data_path = {
 
 
 
-
 input_names = [
                 'gen_z_neg_e',
-                'gen_z_pos_e',
+                #'gen_z_pos_e',
             ]
 
 
@@ -63,18 +62,45 @@ def load_filtered_data(data, column, threshold = 0):
     
 
 
-
 count_hh_mask_neg, gen_z_neg_e_hh_ggf = load_filtered_data(data_hh_ggf, "gen_z_neg_e")
 count_tt_dl_mask_neg, gen_z_neg_e_tt_dl = load_filtered_data(data_tt_dl, "gen_z_neg_e")
 
 count_hh_mask_pos, gen_z_pos_e_hh_ggf = load_filtered_data(data_hh_ggf, "gen_z_pos_e")
 count_tt_dl_mask_pos, gen_z_pos_e_tt_dl = load_filtered_data(data_tt_dl, "gen_z_pos_e")
 
-#e_neg_pt_hh = data_hh_ggf.Electron["pt"]
-#e_neg_pt_hh = e_neg_pt_hh[count_hh_mask_neg]
 
-#e_neg_pt_tt = data_tt_dl.Electron["pt"]
-#e_neg_pt_tt = e_neg_pt_tt[count_tt_dl_mask_neg]
+def get_ele_pt(events, count_mask_neg, count_mask_pos):
+    
+    positive_mask = events.ElectronFromTau.charge > 0
+    negative_mask = events.ElectronFromTau.charge < 0
+
+    gen_matched_ele = events.GenEleFromTau
+    gen_matched_ele_tau = events.GenTauEle
+    
+    is_real_gen_e_tau = gen_matched_ele_tau.pt != EMPTY_FLOAT
+    
+    gen_matched_ele=gen_matched_ele[is_real_gen_e_tau]
+    gen_matched_ele_neg=gen_matched_ele[negative_mask]
+    gen_matched_ele_pos=gen_matched_ele[positive_mask]
+    
+    ele_pt_neg = gen_matched_ele_neg.pt
+    ele_pt_neg = ele_pt_neg[count_mask_neg]
+    positive_pt_mask = ak.flatten(ele_pt_neg, axis=-1)>0
+    ele_pt_neg = ak.flatten(ele_pt_neg, axis=-1)
+    ele_pt_neg = ele_pt_neg[positive_pt_mask]
+    
+    ele_pt_pos = gen_matched_ele_pos.pt
+    ele_pt_pos = ele_pt_pos[count_mask_pos]
+    positive_pt_mask = ak.flatten(ele_pt_pos, axis=-1)>0
+    ele_pt_pos = ak.flatten(ele_pt_pos, axis=-1)
+    ele_pt_pos = ele_pt_pos[positive_pt_mask]
+    
+    return ele_pt_neg, ele_pt_pos
+
+ele_pt_neg_hh, ele_pt_pos_hh = get_ele_pt(data_hh_ggf, count_hh_mask_neg, count_hh_mask_pos)
+ele_pt_neg_tt, ele_pt_pos_tt = get_ele_pt(data_tt_dl, count_tt_dl_mask_neg, count_tt_dl_mask_pos)
+
+
 
 def calculate_event_weights(data, mask, broad_cast_target):
     # first, get weights you want to consider, e.g. MC weights
@@ -107,18 +133,21 @@ def add_target_to_array(variable, *args, target_value=0, dtype=np.int8):
     return variable_plus_zero
 
 
-gen_z_neg_e_hh_ggf_plus_one = add_target_to_array(gen_z_neg_e_hh_ggf, hh_weights_neg, target_value=0)
-gen_z_neg_e_tt_dl_plus_zero = add_target_to_array(gen_z_neg_e_tt_dl, tt_dl_weights_neg, target_value=1)
 
-gen_z_pos_e_hh_ggf_plus_one = add_target_to_array(gen_z_pos_e_hh_ggf, hh_weights_pos, target_value=0)
-gen_z_pos_e_tt_dl_plus_zero = add_target_to_array(gen_z_pos_e_tt_dl, tt_dl_weights_pos, target_value=1)
+gen_z_neg_e_hh_ggf_plus_one = add_target_to_array(gen_z_neg_e_hh_ggf, ele_pt_neg_hh, hh_weights_neg, target_value=0)
+gen_z_neg_e_tt_dl_plus_zero = add_target_to_array(gen_z_neg_e_tt_dl, ele_pt_neg_tt, tt_dl_weights_neg, target_value=1)
 
-combined_array = np.concatenate((gen_z_neg_e_hh_ggf_plus_one, gen_z_neg_e_tt_dl_plus_zero, gen_z_pos_e_hh_ggf_plus_one, gen_z_pos_e_tt_dl_plus_zero))
+gen_z_pos_e_hh_ggf_plus_one = add_target_to_array(gen_z_pos_e_hh_ggf, ele_pt_pos_hh, hh_weights_pos, target_value=0)
+gen_z_pos_e_tt_dl_plus_zero = add_target_to_array(gen_z_pos_e_tt_dl, ele_pt_pos_tt, tt_dl_weights_pos, target_value=1)
+
+combined_array = np.concatenate((gen_z_neg_e_hh_ggf_plus_one, gen_z_neg_e_tt_dl_plus_zero))
 
 shuffled_array= np.random.permutation(combined_array)
 
 
-input_array, output_array, weights = np.split(shuffled_array, 3, axis=1)
+z_array, output_array, pt_array, weights = np.split(shuffled_array, 4, axis=1)
+
+input_array= np.column_stack((z_array,pt_array))
 
 
 input_tensor = tf.constant(input_array)
@@ -158,9 +187,8 @@ train, test = split_dataset(dataset_combined)
 x_train, y_train, weights_train = split_tf_dataset_into_components(train)
 x_test, y_test, weights_test = split_tf_dataset_into_components(test)
 
-
 epochs=100
-model_name = f"gen_model_5_layers_10_nodes_{epochs}_epochs_with_z_pos"
+model_name = f"gen_model_5_layers_10_nodes_{epochs}_epochs_with_pt"
 model = keras.Sequential(
         [
             layers.Dense(1, activation=None, name="layer1"),
@@ -237,7 +265,7 @@ mask_class1 = y_test == 1
 y_pred = model.predict(x_test).ravel()
 output_path = os.path.join(
     thisdir,
-    'dnn_models', 'plots', 'gen_model', 'ROC_plots',
+    'dnn_models', 'plots', 'gen_model_with_pt', 'ROC_plots',
     model_name
 )
 draw_roc(
@@ -251,16 +279,16 @@ draw_roc(
 
 output_path = os.path.join(
     thisdir,
-    'dnn_models', 'plots', 'gen_model', 'ROC_plots', model_name +
-    "_energy_fractions"
+    'dnn_models', 'plots', 'gen_model_with_pt', 'ROC_plots', model_name +
+    "_pt"
 )
 
 draw_roc(
-    y_test=y_test,
-    y_pred=x_test,
+    y_test=output_array,
+    y_pred=pt_array,
     output_path=output_path,
-    weights=weights_test,
-    label="Energy fraction",
+    weights=weights,
+    label="Electron Transverse Momentum",
     style="-."
 )
 
@@ -273,7 +301,7 @@ def plot_loss():
     a= np.array(hist_array["val_loss"])
     plt.plot(a, label="validation loss")
     plt.legend(loc='upper left')
-    plt.savefig('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/plots/gen_model/loss_and_accuracy/gen_model_'+ model_name +"_loss_and_val_loss")
+    plt.savefig('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/plots/gen_model_with_pt/loss_and_accuracy/gen_model_'+ model_name +"_loss_and_val_loss")
     
 def plot_accuracy():
     y= np.array(hist_array["binary_accuracy"])
@@ -282,7 +310,7 @@ def plot_accuracy():
     a= np.array(hist_array["val_binary_accuracy"])
     plt.plot(a, label="validation binary accuracy")
     plt.legend(loc='upper left')
-    plt.savefig('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/plots/gen_model/loss_and_accuracy/gen_model_'+ model_name +"_binary_accuracy_and_val_binary_accuracy")
+    plt.savefig('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/plots/gen_model_with_pt/loss_and_accuracy/gen_model_'+ model_name +"_binary_accuracy_and_val_binary_accuracy")
 
 plot_loss()
 
@@ -301,7 +329,7 @@ for label, data, truth_labels in zip(
         mask = mask.flatten()
         sub_input = data[mask]
         output = model.predict(sub_input)
-        output_folder = os.path.join(thisdir, 'dnn_models', 'output_gen_model_with_z_pos')
+        output_folder = os.path.join(thisdir, 'dnn_models', 'output_gen_model_with_pt')
         output_file_np = os.path.join(output_folder, f'model_output_{label}_mask{mask_value}.npy')
         np.save(output_file_np, output)
 

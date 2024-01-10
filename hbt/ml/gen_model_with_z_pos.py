@@ -4,7 +4,6 @@ from keras import layers
 import awkward as ak
 import numpy as np
 import os
-import create_dnn_plots as dnnplots
 import sklearn
 from sklearn.metrics import roc_curve
 from sklearn.metrics import auc
@@ -49,12 +48,12 @@ def cut_empty_values(dataset):
         return variable_no_empty
 
 
-def load_filtered_data(data, column, threshold = 0):
+def load_filtered_data(data, threshold = 0):
     
     # first, filter out invalid numbers. In case of energy fraction z,
     # value must be in range [0, 1]
-    array = data[column]
-    array = array[array >= threshold]
+    # array = data[column]
+    array = data[data >= threshold]
     # next, only select events where you actually have events and not
     # empty arrays
     event_mask = ak.num(array, axis=-1) > 0
@@ -64,11 +63,11 @@ def load_filtered_data(data, column, threshold = 0):
 
 
 
-count_hh_mask_neg, gen_z_neg_e_hh_ggf = load_filtered_data(data_hh_ggf, "gen_z_neg_e")
-count_tt_dl_mask_neg, gen_z_neg_e_tt_dl = load_filtered_data(data_tt_dl, "gen_z_neg_e")
+count_hh_mask_neg, gen_z_neg_e_hh_ggf = load_filtered_data(data_hh_ggf["gen_z_neg_e"])
+count_tt_dl_mask_neg, gen_z_neg_e_tt_dl = load_filtered_data(data_tt_dl["gen_z_neg_e"])
 
-count_hh_mask_pos, gen_z_pos_e_hh_ggf = load_filtered_data(data_hh_ggf, "gen_z_pos_e")
-count_tt_dl_mask_pos, gen_z_pos_e_tt_dl = load_filtered_data(data_tt_dl, "gen_z_pos_e")
+count_hh_mask_pos, gen_z_pos_e_hh_ggf = load_filtered_data(data_hh_ggf["gen_z_pos_e"])
+count_tt_dl_mask_pos, gen_z_pos_e_tt_dl = load_filtered_data(data_tt_dl["gen_z_pos_e"])
 
 #e_neg_pt_hh = data_hh_ggf.Electron["pt"]
 #e_neg_pt_hh = e_neg_pt_hh[count_hh_mask_neg]
@@ -86,6 +85,9 @@ def calculate_event_weights(data, mask, broad_cast_target):
     # returned by ak.broadcast_arrays
     broadcasted_weights = ak.broadcast_arrays(weights, broad_cast_target)[0]
     return broadcasted_weights/np.sum(broadcasted_weights)
+
+from IPython import embed
+embed()
 
 hh_weights_neg = calculate_event_weights(data_hh_ggf, count_hh_mask_neg, gen_z_neg_e_hh_ggf)
 tt_dl_weights_neg = calculate_event_weights(data_tt_dl, count_tt_dl_mask_neg, gen_z_neg_e_tt_dl)
@@ -112,6 +114,9 @@ gen_z_neg_e_tt_dl_plus_zero = add_target_to_array(gen_z_neg_e_tt_dl, tt_dl_weigh
 
 gen_z_pos_e_hh_ggf_plus_one = add_target_to_array(gen_z_pos_e_hh_ggf, hh_weights_pos, target_value=0)
 gen_z_pos_e_tt_dl_plus_zero = add_target_to_array(gen_z_pos_e_tt_dl, tt_dl_weights_pos, target_value=1)
+
+from IPython import embed
+embed()
 
 combined_array = np.concatenate((gen_z_neg_e_hh_ggf_plus_one, gen_z_neg_e_tt_dl_plus_zero, gen_z_pos_e_hh_ggf_plus_one, gen_z_pos_e_tt_dl_plus_zero))
 
@@ -158,8 +163,9 @@ train, test = split_dataset(dataset_combined)
 x_train, y_train, weights_train = split_tf_dataset_into_components(train)
 x_test, y_test, weights_test = split_tf_dataset_into_components(test)
 
+
 epochs=100
-model_name = f"gen_model_5_layers_10_nodes_{epochs}_epochs_tt_1_hh_0_with_z_pos"
+model_name = f"gen_model_5_layers_10_nodes_{epochs}_epochs_with_z_pos"
 model = keras.Sequential(
         [
             layers.Dense(1, activation=None, name="layer1"),
@@ -236,7 +242,7 @@ mask_class1 = y_test == 1
 y_pred = model.predict(x_test).ravel()
 output_path = os.path.join(
     thisdir,
-    'dnn_models', 'plots', 'gen_model_with_z_pos', 'ROC_plots',
+    'dnn_models', 'plots', 'gen_model', 'ROC_plots',
     model_name
 )
 draw_roc(
@@ -250,7 +256,7 @@ draw_roc(
 
 output_path = os.path.join(
     thisdir,
-    'dnn_models', 'plots', 'gen_model_with_z_pos', 'ROC_plots', model_name +
+    'dnn_models', 'plots', 'gen_model', 'ROC_plots', model_name +
     "_energy_fractions"
 )
 
@@ -272,7 +278,7 @@ def plot_loss():
     a= np.array(hist_array["val_loss"])
     plt.plot(a, label="validation loss")
     plt.legend(loc='upper left')
-    plt.savefig('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/plots/gen_model_with_z_pos/loss_and_accuracy/gen_model_'+ model_name +"_loss_and_val_loss")
+    plt.savefig('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/plots/gen_model/loss_and_accuracy/gen_model_'+ model_name +"_loss_and_val_loss")
     
 def plot_accuracy():
     y= np.array(hist_array["binary_accuracy"])
@@ -281,7 +287,7 @@ def plot_accuracy():
     a= np.array(hist_array["val_binary_accuracy"])
     plt.plot(a, label="validation binary accuracy")
     plt.legend(loc='upper left')
-    plt.savefig('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/plots/gen_model_with_z_pos/loss_and_accuracy/gen_model_'+ model_name +"_binary_accuracy_and_val_binary_accuracy")
+    plt.savefig('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/plots/gen_model/loss_and_accuracy/gen_model_'+ model_name +"_binary_accuracy_and_val_binary_accuracy")
 
 plot_loss()
 

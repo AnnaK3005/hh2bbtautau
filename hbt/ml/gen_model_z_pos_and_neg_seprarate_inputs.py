@@ -4,7 +4,6 @@ from keras import layers
 import awkward as ak
 import numpy as np
 import os
-import create_dnn_plots as dnnplots
 import sklearn
 from sklearn.metrics import roc_curve
 from sklearn.metrics import auc
@@ -18,8 +17,8 @@ EMPTY_FLOAT = np.array(-9999.0)
 
 
 data_path = {
-"hh_ggf_bbtautau":["/nfs/dust/cms/user/kindsvat/cf_cache/hbt_store/analysis_hbt/cf.UniteColumns/run2_2017_nano_uhh_v11_limited/hh_ggf_bbtautau_madgraph/nominal/calib__default/sel__onlyMET/prod__onlyMET/123/data_0.parquet"],
-"tt_dl":["/nfs/dust/cms/user/kindsvat/cf_cache/hbt_store/analysis_hbt/cf.UniteColumns/run2_2017_nano_uhh_v11_limited/tt_dl_powheg/nominal/calib__default/sel__onlyMET/prod__onlyMET/123/data_0.parquet",
+"hh_ggf_bbtautau_limited":["/nfs/dust/cms/user/kindsvat/cf_cache/hbt_store/analysis_hbt/cf.UniteColumns/run2_2017_nano_uhh_v11_limited/hh_ggf_bbtautau_madgraph/nominal/calib__default/sel__onlyMET/prod__onlyMET/123/data_0.parquet"],
+"tt_dl_limited":["/nfs/dust/cms/user/kindsvat/cf_cache/hbt_store/analysis_hbt/cf.UniteColumns/run2_2017_nano_uhh_v11_limited/tt_dl_powheg/nominal/calib__default/sel__onlyMET/prod__onlyMET/123/data_0.parquet",
         "/nfs/dust/cms/user/kindsvat/cf_cache/hbt_store/analysis_hbt/cf.UniteColumns/run2_2017_nano_uhh_v11_limited/tt_dl_powheg/nominal/calib__default/sel__onlyMET/prod__onlyMET/123/data_1.parquet",]
 }
 
@@ -36,8 +35,8 @@ def open_parquet_files(files):
     return ak.concatenate([ak.from_parquet(file) for file in files],axis=0)
 
 
-data_hh_ggf = open_parquet_files(data_path["hh_ggf_bbtautau"])
-data_tt_dl = open_parquet_files(data_path["tt_dl"])
+data_hh_ggf = open_parquet_files(data_path["hh_ggf_bbtautau_limited"])
+data_tt_dl = open_parquet_files(data_path["tt_dl_limited"])
 
 
 def cut_empty_values(dataset):
@@ -49,26 +48,47 @@ def cut_empty_values(dataset):
         return variable_no_empty
 
 
-def load_filtered_data(data, column, threshold = 0):
+def load_filtered_data(data, threshold = 0):
     
     # first, filter out invalid numbers. In case of energy fraction z,
     # value must be in range [0, 1]
-    array = data[column]
-    array = array[array >= threshold]
+    # array = data[column]
+    array = data[data >= threshold]
     # next, only select events where you actually have events and not
     # empty arrays
     event_mask = ak.num(array, axis=-1) > 0
     
     return event_mask, array[event_mask]
     
+count_hh_mask, gen_z_e_hh = load_filtered_data(data_hh_ggf["gen_z_e"])
+count_tt_mask, gen_z_e_tt = load_filtered_data(data_tt_dl["gen_z_e"])
+
+def get_z_arrays(variable, data):
+    two_values_mask = ak.count(variable, axis=-1) > 1
+    variable = variable[two_values_mask]
+    three_values = ak.count(variable, axis=-1) > 2
+    variable = variable[~three_values]
+    charge_mask, charge_array = load_filtered_data(data.ElectronFromTau["charge"], -2)
+    charge_array = charge_array[two_values_mask]
+    charge_array = charge_array[~three_values]
+    positive_mask = charge_array > 0
+    negative_mask = charge_array < 0
+    variable_pos = variable[positive_mask]
+    variable_neg = variable[negative_mask]
+    valid_pos_entries = ak.any(positive_mask, axis=1) & ak.any(~positive_mask, axis=1)
+    valid_neg_entries = ak.any(negative_mask, axis=1) & ak.any(~negative_mask, axis=1)
+    variable_pos = variable_pos[valid_pos_entries]
+    variable_pos = ak.flatten(variable_pos, axis=-1)
+    variable_neg = variable_neg[valid_neg_entries]
+    variable_neg = ak.flatten(variable_neg, axis=-1)
+    
+    return variable_pos, variable_neg
+
+gen_z_pos_e_hh, gen_z_neg_e_hh = get_z_arrays(gen_z_e_hh, data_hh_ggf)
+gen_z_pos_e_tt, gen_z_neg_e_tt = get_z_arrays(gen_z_e_tt, data_tt_dl)
 
 
 
-count_hh_mask_neg, gen_z_neg_e_hh_ggf = load_filtered_data(data_hh_ggf, "gen_z_neg_e")
-count_tt_dl_mask_neg, gen_z_neg_e_tt_dl = load_filtered_data(data_tt_dl, "gen_z_neg_e")
-
-count_hh_mask_pos, gen_z_pos_e_hh_ggf = load_filtered_data(data_hh_ggf, "gen_z_pos_e")
-count_tt_dl_mask_pos, gen_z_pos_e_tt_dl = load_filtered_data(data_tt_dl, "gen_z_pos_e")
 
 #e_neg_pt_hh = data_hh_ggf.Electron["pt"]
 #e_neg_pt_hh = e_neg_pt_hh[count_hh_mask_neg]
@@ -76,50 +96,59 @@ count_tt_dl_mask_pos, gen_z_pos_e_tt_dl = load_filtered_data(data_tt_dl, "gen_z_
 #e_neg_pt_tt = data_tt_dl.Electron["pt"]
 #e_neg_pt_tt = e_neg_pt_tt[count_tt_dl_mask_neg]
 
-def calculate_event_weights(data, mask, broad_cast_target):
+def calculate_event_weights(data, count_mask, variable):
     # first, get weights you want to consider, e.g. MC weights
     weights = data.mc_weight
+    two_values_mask = ak.count(variable, axis=-1) > 1
+    variable = variable[two_values_mask]
+    three_values = ak.count(variable, axis=-1) > 2
+    charge_mask, charge_array = load_filtered_data(data.ElectronFromTau["charge"], -2)
+    charge_array = charge_array[two_values_mask]
+    charge_array = charge_array[~three_values]
+    positive_mask = charge_array > 0
+    valid_pos_entries = ak.any(positive_mask, axis=1) & ak.any(~positive_mask, axis=1)
     # apply event-level mask to select interesting weights
-    weights = weights[mask]
+    weights = weights[count_mask]
+    weights = weights[two_values_mask]
+    weights = weights[valid_pos_entries]
     # now, perform broadcasting to ensure same dimensions
     # note: broadcasted weight array is first entry in list
     # returned by ak.broadcast_arrays
-    broadcasted_weights = ak.broadcast_arrays(weights, broad_cast_target)[0]
-    return broadcasted_weights/np.sum(broadcasted_weights)
+    return weights/np.sum(weights)
 
-hh_weights_neg = calculate_event_weights(data_hh_ggf, count_hh_mask_neg, gen_z_neg_e_hh_ggf)
-tt_dl_weights_neg = calculate_event_weights(data_tt_dl, count_tt_dl_mask_neg, gen_z_neg_e_tt_dl)
 
-hh_weights_pos = calculate_event_weights(data_hh_ggf, count_hh_mask_pos, gen_z_pos_e_hh_ggf)
-tt_dl_weights_pos = calculate_event_weights(data_tt_dl, count_tt_dl_mask_pos, gen_z_pos_e_tt_dl)
 
-def add_target_to_array(variable, *args, target_value=0, dtype=np.int8):
+hh_weights = calculate_event_weights(data_hh_ggf, count_hh_mask, gen_z_e_hh)
+tt_dl_weights = calculate_event_weights(data_tt_dl, count_tt_mask, gen_z_e_tt)
+
+
+
+def add_target_to_array(variable, *args, target_value=0):
     # first, flatten the input arrays
-    flat_variables = ak.flatten(variable, axis=-1)
-    flat_args = [ak.flatten(x, axis=-1) for x in args]
     
     # now create new array with same strucutre as main input,
     # which is filled with target value and has data type dtype
-    target_array = ak.full_like(flat_variables, target_value, dtype=dtype)
+    target_array = ak.full_like(variable, target_value)
     
     # finally stack everything together
-    variable_plus_zero=np.column_stack((flat_variables, target_array, *flat_args))
+    variable_plus_zero=np.column_stack((variable, target_array, *args))
     return variable_plus_zero
 
 
-gen_z_neg_e_hh_ggf_plus_one = add_target_to_array(gen_z_neg_e_hh_ggf, hh_weights_neg, target_value=0)
-gen_z_neg_e_tt_dl_plus_zero = add_target_to_array(gen_z_neg_e_tt_dl, tt_dl_weights_neg, target_value=1)
 
-gen_z_pos_e_hh_ggf_plus_one = add_target_to_array(gen_z_pos_e_hh_ggf, hh_weights_pos, target_value=0)
-gen_z_pos_e_tt_dl_plus_zero = add_target_to_array(gen_z_pos_e_tt_dl, tt_dl_weights_pos, target_value=1)
+gen_z_e_hh_plus_one = add_target_to_array(gen_z_neg_e_hh, gen_z_pos_e_hh, hh_weights, target_value=0)
+gen_z_e_tt_plus_zero = add_target_to_array(gen_z_neg_e_tt, gen_z_pos_e_tt, tt_dl_weights, target_value=1)
 
-combined_array = np.concatenate((gen_z_neg_e_hh_ggf_plus_one, gen_z_neg_e_tt_dl_plus_zero, gen_z_pos_e_hh_ggf_plus_one, gen_z_pos_e_tt_dl_plus_zero))
+
+
+combined_array = np.concatenate((gen_z_e_hh_plus_one, gen_z_e_tt_plus_zero))
 
 shuffled_array= np.random.permutation(combined_array)
 
 
-input_array, output_array, weights = np.split(shuffled_array, 3, axis=1)
+z_neg_array, output_array, z_pos_array, weights = np.split(shuffled_array, 4, axis=1)
 
+input_array = np.column_stack((z_neg_array, z_pos_array))
 
 input_tensor = tf.constant(input_array)
 output_tensor = tf.constant(output_array)
@@ -129,7 +158,8 @@ dataset_x = tf.data.Dataset.from_tensor_slices((input_tensor))
 dataset_y = tf.data.Dataset.from_tensor_slices((output_tensor))
 dataset_weights = tf.data.Dataset.from_tensor_slices((weights_tensor))
 
-
+from IPython import embed
+embed()
 
 def split_dataset(dataset, split_ratio=0.2, batch_size=256):
     num_samples = dataset.cardinality().numpy()
@@ -160,7 +190,7 @@ x_test, y_test, weights_test = split_tf_dataset_into_components(test)
 
 
 epochs=100
-model_name = f"gen_model_5_layers_10_nodes_{epochs}_epochs_with_z_pos"
+model_name = f"gen_model_5_layers_10_nodes_{epochs}_epochs_z_pos_and_neg_separate_inputs"
 model = keras.Sequential(
         [
             layers.Dense(1, activation=None, name="layer1"),
@@ -237,7 +267,7 @@ mask_class1 = y_test == 1
 y_pred = model.predict(x_test).ravel()
 output_path = os.path.join(
     thisdir,
-    'dnn_models', 'plots', 'gen_model', 'ROC_plots',
+    'dnn_models', 'plots', 'gen_model_z_pos_and_neg_separate_inputs', 'ROC_plots',
     model_name
 )
 draw_roc(
@@ -251,18 +281,18 @@ draw_roc(
 
 output_path = os.path.join(
     thisdir,
-    'dnn_models', 'plots', 'gen_model', 'ROC_plots', model_name +
+    'dnn_models', 'plots', 'gen_model_z_pos_and_neg_separate_inputs', 'ROC_plots', model_name +
     "_energy_fractions"
 )
 
-draw_roc(
-    y_test=y_test,
-    y_pred=x_test,
-    output_path=output_path,
-    weights=weights_test,
-    label="Energy fraction",
-    style="-."
-)
+#draw_roc(
+#    y_test=y_test,
+#    y_pred=x_test,
+#    output_path=output_path,
+#    weights=weights_test,
+#    label="Energy fraction",
+#    style="-."
+#)
 
 plt.clf()
 
@@ -273,7 +303,7 @@ def plot_loss():
     a= np.array(hist_array["val_loss"])
     plt.plot(a, label="validation loss")
     plt.legend(loc='upper left')
-    plt.savefig('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/plots/gen_model/loss_and_accuracy/gen_model_'+ model_name +"_loss_and_val_loss")
+    plt.savefig('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/plots/gen_model_z_pos_and_neg_separate_inputs/loss_and_accuracy/gen_model_'+ model_name +"_loss_and_val_loss")
     
 def plot_accuracy():
     y= np.array(hist_array["binary_accuracy"])
@@ -282,7 +312,7 @@ def plot_accuracy():
     a= np.array(hist_array["val_binary_accuracy"])
     plt.plot(a, label="validation binary accuracy")
     plt.legend(loc='upper left')
-    plt.savefig('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/plots/gen_model/loss_and_accuracy/gen_model_'+ model_name +"_binary_accuracy_and_val_binary_accuracy")
+    plt.savefig('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/plots/gen_model_z_pos_and_neg_separate_inputs/loss_and_accuracy/gen_model_'+ model_name +"_binary_accuracy_and_val_binary_accuracy")
 
 plot_loss()
 
@@ -301,7 +331,7 @@ for label, data, truth_labels in zip(
         mask = mask.flatten()
         sub_input = data[mask]
         output = model.predict(sub_input)
-        output_folder = os.path.join(thisdir, 'dnn_models', 'output_gen_model_with_z_pos')
+        output_folder = os.path.join(thisdir, 'dnn_models', 'output_gen_model_z_pos_and_neg_separate_inputs')
         output_file_np = os.path.join(output_folder, f'model_output_{label}_mask{mask_value}.npy')
         np.save(output_file_np, output)
 

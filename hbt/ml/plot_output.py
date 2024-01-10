@@ -21,23 +21,24 @@ def plot_output_seperatly(data_name,target):
 
 
 def plot_output_combined(model_name):
-    loaded_output_test_1 = np.load('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/output_gen_model/model_output_test_mask1.0.npy')
-    loaded_output_test_0 = np.load('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/output_gen_model/model_output_test_mask0.0.npy')
-    loaded_output_train_1 = np.load('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/output_gen_model/model_output_train_mask1.0.npy')
-    loaded_output_train_0 = np.load('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/output_gen_model/model_output_train_mask0.0.npy')
-    plt.hist(loaded_output_test_1, bins=50, edgecolor='black', label='tt test', range=(0,1))
-    plt.hist(loaded_output_test_0, bins=50, edgecolor='black', label='H test', range=(0,1))
-    plt.hist(loaded_output_train_1, bins=50, edgecolor='black', label='tt train', range=(0,1))
-    plt.hist(loaded_output_train_0, bins=50, edgecolor='black', label='H train', range=(0,1))
+    loaded_output_test_1 = np.load('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/output_' + model_name + '/model_output_test_mask1.0.npy')
+    loaded_output_test_0 = np.load('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/output_' + model_name + '/model_output_test_mask0.0.npy')
+    loaded_output_train_1 = np.load('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/output_' + model_name + '/model_output_train_mask1.0.npy')
+    loaded_output_train_0 = np.load('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/output_' + model_name + '/model_output_train_mask0.0.npy')
+    plt.hist(loaded_output_test_1, bins=50, edgecolor='black', label='Top', color='yellow', range=(0,1), alpha=0.5)
+    plt.hist(loaded_output_test_0, bins=50, edgecolor='black', label='Higgs', color='blue', range=(0,1), alpha=0.5)
+    #plt.hist(loaded_output_train_1, bins=50, edgecolor='black', label='Top', color='yellow', range=(0,1), alpha=0.5)
+    #plt.hist(loaded_output_train_0, bins=50, edgecolor='black', label='Higgs', color='blue', range=(0,1), alpha=0.5)
     plt.xlabel('Modell-Output')
     plt.ylabel('Anzahl der Beobachtungen')
     plt.title('Histogramm des Modell-Outputs,')
-    plt.savefig('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/plots/gen_model/output_hist/model_output_combined_' + model_name +'.png')
+    plt.legend()
+    plt.savefig('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/plots/'+ model_name + '/output/model_output_combined_' + model_name +'_with_z_pos.png')
 
 
 def plot_calib_curve(model_name):
-    loaded_output_test_1 = np.load('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/output_gen_model/model_output_test_mask1.0.npy')
-    loaded_output_test_0 = np.load('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/output_gen_model/model_output_test_mask0.0.npy')
+    loaded_output_test_1 = np.load('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/output_'+ model_name + '/model_output_test_mask1.0.npy')
+    loaded_output_test_0 = np.load('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/output_'+ model_name + '/model_output_test_mask0.0.npy')
     hh_counts, edges, _ = plt.hist(loaded_output_test_0, bins=50, edgecolor='black')
     tt_counts, edges, _ = plt.hist(loaded_output_test_1, bins=50, edgecolor='black')
     calib_curve = tt_counts / (tt_counts + hh_counts)
@@ -48,7 +49,7 @@ def plot_calib_curve(model_name):
     plt.clf()
     plt.plot(xcenters, calib_curve, label='calibration curve')
     plt.plot([0, 1], [0, 1], linestyle="dashed", color="black", linewidth=1)
-    plt.savefig('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/plots/gen_model/output_hist/calib_curve_' + model_name + '.png')
+    plt.savefig('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/plots/'+ model_name + '/output/calib_curve_' + model_name + '_with_z_pos.png')
     
     
 def plot_z_output_ratios():
@@ -64,7 +65,7 @@ def plot_z_output_ratios():
     xcenters = xcenters[tt_mask]
     plt.clf()
     plt.plot(xcenters, z_ratios)
-    plt.savefig('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/plots/gen_model/output_hist/z_output_ratios')
+    plt.savefig('/afs/desy.de/user/k/kindsvat/Documents/hh2bbtautau/hbt/ml/dnn_models/plots/gen_model/output/z_output_ratios')
     
     
 def plot_gaussians():
@@ -93,8 +94,7 @@ def plot_gaussians():
 
     #data_hh_ggf = higgs_l + higgs_r
 
-    from IPython import embed
-    embed()
+
     
     #data_hh_ggf= truncnorm((lower - loc_h_new) / scale_h_new, (upper - loc_h_new) / scale_h_new, loc=loc_h_new, scale=scale_h_new)
     #data_hh_ggf= truncnorm((lower - loc_h) / scale_h, (upper - loc_h) / scale_h, loc=loc_h, scale=scale_h)
@@ -123,18 +123,10 @@ def plot_gaussians():
 n_bins_h= 50
 n_bins_tt=50
 
-plot_gaussians()
-#plot_output_combined('100_epochs_with_z_pos')
+plot_output_combined('gen_model_z_pos_and_neg_separate_inputs_only_mu')
+ 
+plt.clf()
+
+plot_calib_curve('gen_model_z_pos_and_neg_separate_inputs_only_mu')
 
 
-#plot_calib_curve('100_epochs_with_z_pos')
-
-
-#plot_output_seperatly('test_mask0.0','tt')
-#plot_output_seperatly('test_mask1.0','H')
-#plot_output_seperatly('train_mask0.0','tt')
-#plot_output_seperatly('train_mask1.0','H')
-
-
-
-# hh_counts, bin_edges, _ = plt.hist(y_pred[y_test.flatten() == 0], bins=20, color="orange", weights=weights_test[y_test.flatten() == 0])

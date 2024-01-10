@@ -20,6 +20,7 @@ from columnflow.config_util import (
     get_root_processes_from_campaign, add_shift_aliases, get_shifts_from_sources,
     verify_config_processes,
 )
+from columnflow.columnar_util import ColumnCollection
 
 
 thisdir = os.path.dirname(os.path.abspath(__file__))
@@ -673,6 +674,8 @@ def add_config(
             # "idDeepTau2017v2p1VSmu", "idDeepTau2017v2p1VSjet", "genPartFlav",
             # "decayMode"]
              },
+            ColumnCollection.ALL_FROM_SELECTOR,
+        },
         "cf.MergeSelectionMasks": {
             "cutflow.*",
         },

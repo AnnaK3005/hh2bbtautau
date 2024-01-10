@@ -37,8 +37,8 @@ scale_h_r=0.25
 
 
 
-higgs_l=(lower - loc_h_l) / scale_h_l, (upper - loc_h_l) / scale_h_l, loc=loc_h_l, scale=scale_h_l
-higgs_r=(lower - loc_h_r) / scale_h_r, (upper - loc_h_r) / scale_h_r, loc=loc_h_r, scale=scale_h_r
+higgs_l=truncnorm((lower - loc_h_l) / scale_h_l, (upper - loc_h_l) / scale_h_l, loc=loc_h_l, scale=scale_h_l)
+higgs_r=truncnorm((lower - loc_h_r) / scale_h_r, (upper - loc_h_r) / scale_h_r, loc=loc_h_r, scale=scale_h_r)
 data_hh_ggf= truncnorm(higgs_l + higgs_r)
 data_tt_dl=truncnorm((lower - loc_tt) / scale_tt, (upper - loc_tt) / scale_tt, loc=loc_tt, scale=scale_tt)
 

@@ -686,9 +686,9 @@ def add_config(
     get_shifts = functools.partial(get_shifts_from_sources, cfg)
     cfg.x.event_weights = DotDict({
         "normalization_weight": [],
-        "pdf_weight": get_shifts("pdf"),
-        "murmuf_weight": get_shifts("murmuf"),
-        "normalized_pu_weight": get_shifts("minbias_xs"),
+        # "pdf_weight": get_shifts("pdf"),
+        # "murmuf_weight": get_shifts("murmuf"),
+        # "normalized_pu_weight": get_shifts("minbias_xs"),
         #"normalized_njet_btag_weight": get_shifts(*(f"btag_{unc}" for unc in btag_uncs)),
         #"electron_weight": get_shifts("e"),
         #"muon_weight": get_shifts("mu"),

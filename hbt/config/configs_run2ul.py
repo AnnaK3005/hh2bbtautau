@@ -22,7 +22,6 @@ from columnflow.config_util import (
 )
 from columnflow.columnar_util import ColumnCollection
 
-
 thisdir = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -673,9 +672,8 @@ def add_config(
             #  for var in ["pt", "eta", "phi", "mass", "idDeepTau2017v2p1VSe",
             # "idDeepTau2017v2p1VSmu", "idDeepTau2017v2p1VSjet", "genPartFlav",
             # "decayMode"]
-             },
-            ColumnCollection.ALL_FROM_SELECTOR,
-        },
+            } | {ColumnCollection.ALL_FROM_SELECTOR},
+        
         "cf.MergeSelectionMasks": {
             "cutflow.*",
         },

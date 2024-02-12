@@ -10,8 +10,9 @@ import law
 
 from columnflow.production import Producer, producer
 from columnflow.util import maybe_import, dev_sandbox, InsertableDict
-from columnflow.columnar_util import set_ak_column
+from columnflow.columnar_util import set_ak_column, Route
 from columnflow.columnar_util import EMPTY_FLOAT
+from hbt.production.dau import dau_producer
 
 
 np = maybe_import("numpy")
@@ -38,11 +39,18 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
         "Electron.*", "Tau.*", "Muon.*",
         "DeepMETResolutionTune.phi", "DeepMETResolutionTune.pt",
         "DeepMETResponseTune.phi", "DeepMETResponseTune.pt",
+        dau_producer,
     },
     sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh"),
     produces={
         "tautauNN_regression_output", "tautauNN_classification_output",
+        dau_producer,
     },
+    # get user input information about year, spin and mass (parametrized network)
+    # do also some checks for logic reasons
+    mass=400,
+    year=2,
+    spin=2,
 )
 def tautauNN(
     self: Producer,
@@ -86,7 +94,7 @@ def tautauNN(
     # What particle is within the pair is encoded within the  channel_id
     # decode:1=muon_tau, 2= electron_tau, 3=tau_tau
 
-    dau = select_DAU(events)
+    dau = self[dau_producer](events)
 
     # rotate DAU relative to MET
     dau_dphi = phi_mpi_to_pi(dau.phi - events.MET.phi)
@@ -102,13 +110,14 @@ def tautauNN(
 
     # split DAU pair features into first and second DAU feature
     for number in (0, 1):
-        inputs[f"dau{number + 1}_px"] = dau_px[:, number]
-        inputs[f"dau{number + 1}_py"] = dau_py[:, number]
-        inputs[f"dau{number + 1}_pz"] = dau_pz[:, number]
-        inputs[f"dau{number + 1}_e"] = dau_e[:, number]
+        route = Route(f"[:, {number}]")
+        inputs[f"dau{number + 1}_px"] = route.apply(dau_px, None)
+        inputs[f"dau{number + 1}_py"] = route.apply(dau_py, None)
+        inputs[f"dau{number + 1}_pz"] = route.apply(dau_pz, None)
+        inputs[f"dau{number + 1}_e"] = route.apply(dau_e, None)
 
-        inputs[f"dau{number + 1}_charge"] = dau.charge[:, number]
-        inputs[f"dau{number + 1}_decayMode"] = dau_decay_mode[:, number]
+        inputs[f"dau{number + 1}_charge"] = route.apply(dau.charge, None)
+        inputs[f"dau{number + 1}_decayMode"] = route.apply(dau_decay_mode, None)
 
     # reduce channel_id by one to match clubanalysis values: 0,1,2
     inputs["pairType"] = ak.values_astype(events.channel_id - 1, np.float32)
@@ -141,22 +150,17 @@ def tautauNN(
 
     # split into first and second bJet
     for number in (0, 1):
-        inputs[f"bjet{number + 1}_px"] = bjet_px[:, number]
-        inputs[f"bjet{number + 1}_py"] = bjet_py[:, number]
-        inputs[f"bjet{number + 1}_pz"] = bjet_pz[:, number]
-        inputs[f"bjet{number + 1}_e"] = bjet_e[:, number]
-        inputs[f"bjet{number + 1}_btag_deepFlavor"] = btag_deepflavor_b[:, number]
-        inputs[f"bjet{number + 1}_cID_deepFlavor"] = btag_deepflavor_c[:, number]
-
-    # get user input information about year, spin and mass (parametrized network)
-    # do also some checks for logic reasons
-    self.mass = 200
-    self.year = 2
-    self.spin = 2
+        route = Route(f"[:, {number}]")
+        inputs[f"bjet{number + 1}_px"] = route.apply(bjet_px, None)
+        inputs[f"bjet{number + 1}_py"] = route.apply(bjet_py, None)
+        inputs[f"bjet{number + 1}_pz"] = route.apply(bjet_pz, None)
+        inputs[f"bjet{number + 1}_e"] = route.apply(bjet_e, None)
+        inputs[f"bjet{number + 1}_btag_deepFlavor"] = route.apply(btag_deepflavor_b, None)
+        inputs[f"bjet{number + 1}_cID_deepFlavor"] = route.apply(btag_deepflavor_c, None)
 
     # year mapping 0=2016_pre, 1=2016, 2=2017, 3=2018
     allowed_year = (0, 1, 2, 3)
-    allowed_spin = (2,)
+    allowed_spin = (2,0)
     if self.mass < 0:
         raise ValueError(f"Mass must be positive, but got {self.mass}")
     inputs["mass"] = ak.full_like(inputs["met_e"], self.mass, dtype=np.float32)
@@ -205,7 +209,6 @@ def tautauNN(
 
     regression_scores[selection_mask] = network_scores["regression_output_hep"].numpy()
     classification_scores[selection_mask] = network_scores["classification_output"].numpy()
-
     events = set_ak_column_f32(events, "tautauNN_regression_output", regression_scores)
     events = set_ak_column_f32(events, "tautauNN_classification_output", classification_scores)
 
@@ -263,40 +266,6 @@ def phi_mpi_to_pi(phi):
         larger_pi_mask = phi > PI
         smaller_pi_mask = phi < -PI
     return phi
-
-
-def select_DAU(events):
-    """
-    Helper function to select DAUs.
-    DAUs are daughter lepton coming from Higgs.
-    The selection of electron, mkuon and taus always result in single or dual entries.
-    Therefore, concatenate of single leptons with another single lepton always will result in
-    a dual-lepton entry.
-    There are three different dau-types: ElectronTau, MuonTau and TauTau.
-    """
-
-    # combine single-lepton arrays to create dual-lepton entries
-    # filter dual at least 2 taus out
-    tau_tau_mask = ak.num(events.Tau) > 1
-    tau_tau = ak.mask(events.Tau, tau_tau_mask)
-
-    # filter single taus and single electron and muon out
-    single_tau_mask = ak.num(events.Tau) == 1
-    tau = ak.mask(events.Tau, single_tau_mask)
-
-    electron_tau = ak.concatenate([events.Electron, tau], axis=1)
-    electron_tau_mask = ak.num(electron_tau) == 2
-    electron_tau = ak.mask(electron_tau, electron_tau_mask)
-
-    muon_tau = ak.concatenate([events.Muon, tau], axis=1)
-    muon_tau_mask = ak.num(muon_tau) == 2
-    muon_tau = ak.mask(muon_tau, muon_tau_mask)
-
-    # combine different dual-lepton arrays together
-    # order is preserved, since previous masking left Nones, where otherwise an entry would be
-    # thus no dual-lepton entry is stacked on top of another dual-lepton
-    dau = ak.drop_none(ak.concatenate((electron_tau, muon_tau, tau_tau), axis=1))
-    return dau
 
 
 def select_DAU_decay_mode(events):

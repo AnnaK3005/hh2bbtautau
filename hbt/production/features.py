@@ -67,7 +67,7 @@ def cutflow_features(
 
     # apply per-object selections
     if object_masks.get("Jet"):
-        if object_masks["Jet"].get("Jet"):
+        if isinstance(object_masks["Jet"].get("Jet"), ak.Array):
             selected_jet = events.Jet[object_masks["Jet"]["Jet"]]
     else: 
         selected_jet = events.Jet

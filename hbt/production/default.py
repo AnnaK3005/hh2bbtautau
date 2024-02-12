@@ -24,12 +24,12 @@ ak = maybe_import("awkward")
 @producer(
     uses={
         category_ids, features, normalization_weights, normalized_pdf_weight,
-        normalized_murmuf_weight, normalized_pu_weight, #normalized_btag_weights,
+        normalized_murmuf_weight, normalized_pu_weight, normalized_btag_weights,
         tau_weights, electron_weights, muon_weights, trigger_weights, spin_observables,
     },
     produces={
         category_ids, features, normalization_weights, normalized_pdf_weight,
-        normalized_murmuf_weight, normalized_pu_weight, #normalized_btag_weights,
+        normalized_murmuf_weight, normalized_pu_weight, normalized_btag_weights,
         tau_weights, electron_weights, muon_weights, trigger_weights, spin_observables,
     },
 )

@@ -3,7 +3,7 @@
 """
 Column production methods related to higher-level features.
 """
-
+from __future__ import annotations
 import numpy as np
 
 import functools
@@ -15,8 +15,10 @@ from columnflow.production.categories import category_ids
 from columnflow.production.cms.mc_weight import mc_weight
 from columnflow.util import maybe_import
 from columnflow.columnar_util import EMPTY_FLOAT, Route, set_ak_column
+from columnflow.types import Union
 
 from hbt.production.gen_lep_tau import gen_lep_tau
+from hbt.production.neutrino_energies import ideal_neutrino_energies
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
 
@@ -26,19 +28,11 @@ set_ak_column_i32 = functools.partial(set_ak_column, value_type=np.int32)
 
 @producer(
     uses=({
-        "Electron.*", "Muon.*", gen_lep_tau.PRODUCES, attach_coffea_behavior
+        "Electron.*", "Muon.*", gen_lep_tau.PRODUCES, attach_coffea_behavior,
+        ideal_neutrino_energies,
     }),
-    produces=({
-        f"gen_z{version}_{flavor}"
-        for version in ("", "_pos", "_neg")
-        for flavor in ("e","m")
-    } | {
-        "gen_cos_theta_hat_e",
-        "gen_cos_omega_m",
-        "gen_cos_omega_e",
-        "gen_cos_theta_hat_m",
-        "gen_cos_omega_m_new",
-        "gen_cos_omega_e_new",
+    produces = ({
+     ideal_neutrino_energies,   
     }
     ),
     exposed=True,
@@ -76,7 +70,7 @@ def spin_observables(self: Producer, events: ak.Array, **kwargs):
         events,
         collections=collections
     )
-
+    events = self[ideal_neutrino_energies](events, **kwargs)
     positive_mask = events.ElectronFromTau.charge > 0
     negative_mask = events.ElectronFromTau.charge < 0
     gen_matched_ele = events.GenEleFromTau
@@ -87,41 +81,6 @@ def spin_observables(self: Producer, events: ak.Array, **kwargs):
     
     gen_matched_muon = events.GenMuonFromTau
     gen_matched_muon_tau = events.GenTauMuon
-    
-    gen_z_e = gen_matched_ele.energy / gen_matched_ele_tau.energy
-    beta_e_tau = gen_matched_ele_tau.pvec.absolute() / gen_matched_ele_tau.energy
-    
-    beta_m_tau = gen_matched_muon_tau.pvec.absolute() / gen_matched_muon_tau.energy
-    gen_z_m = gen_matched_muon.energy / gen_matched_muon_tau.energy
-    
-    is_real_gen_e_tau = gen_matched_ele_tau.pt != EMPTY_FLOAT
-    is_real_gen_muon_tau = gen_matched_muon_tau.pt != EMPTY_FLOAT
-    
-    
-    
-    #pos_mask=ak.fill_none(ak.flatten(events.Electron.mass, axis=1), EMPTY_FLOAT)>=-1 & <=1
-    #pos_ele_mass=(ak.fill_none(ak.flatten(events.Electron.mass, axis=1), EMPTY_FLOAT))[pos_mask]
-    
-    pdg_mass_electron = 0.00051099895
-    pdg_mass_tau = 1.77686
-    gen_a_e = pdg_mass_electron/pdg_mass_tau
-    gen_cos_theta_hat_e = (2*gen_z_e - 1 - gen_a_e**2)/(beta_e_tau*(1-gen_a_e**2))
-    gen_cos_omega_e = (1 - gen_a_e**2 + (1 + gen_a_e**2)*gen_cos_theta_hat_e)/(1 + gen_a_e**2 + (1 - gen_a_e**2)*gen_cos_theta_hat_e)
-    
-    
-    pdg_mass_muon = 0.1056583755
-    gen_a_m = pdg_mass_muon/pdg_mass_tau
-    gen_cos_theta_hat_m = (2*gen_z_m - 1 - gen_a_m**2)/(beta_m_tau*(1-gen_a_m**2))
-    gen_cos_omega_m = (1 - gen_a_m**2 + (1 + gen_a_m**2)*gen_cos_theta_hat_m)/(1 + gen_a_m**2 + (1 - gen_a_m**2)*gen_cos_theta_hat_m)
-
-    gamma_e =1/np.sqrt(1-beta_e_tau**2)
-    sin_theta_e = np.sqrt(1-gen_cos_theta_hat_e**2)
-    gen_cos_omega_e_new = (1 - gen_a_e**2 + (1 + gen_a_e**2)*beta_e_tau*gen_cos_theta_hat_e)/np.sqrt((gen_cos_theta_hat_e**2 + gamma_e**(-2)*sin_theta_e**2)*(1-gen_a_e**2)**2+2*(1-gen_a_e**4)*beta_e_tau*gen_cos_theta_hat_e+beta_e_tau**2*(1+gen_a_e**2)**2)
-    gamma_m=1/np.sqrt(1-beta_m_tau**2)
-    sin_theta_m = np.sqrt(1-gen_cos_theta_hat_m**2)
-    gen_cos_omega_m_new = (1 - gen_a_m**2 + (1 + gen_a_m**2)*beta_m_tau*gen_cos_theta_hat_m)/np.sqrt((gen_cos_theta_hat_m**2 + gamma_m**(-2)*sin_theta_m**2)*(1-gen_a_m**2)**2+2*(1-gen_a_m**4)*beta_m_tau*gen_cos_theta_hat_m+beta_m_tau**2*(1+gen_a_m**2)**2)
-    
-
     
     def fill_real_finite_values_only(
         events: ak.Array,
@@ -136,23 +95,125 @@ def spin_observables(self: Producer, events: ak.Array, **kwargs):
         final_mask = default_mask & finite_mask
         
         return set_ak_column_f32(events, col_name, ak.where(final_mask, col_values, EMPTY_FLOAT))
-    
-    events = fill_real_finite_values_only(events, "gen_z_e", is_real_gen_e_tau, gen_z_e)
-    events = fill_real_finite_values_only(events, "gen_z_m", is_real_gen_muon_tau, gen_z_m)
 
-    events = fill_real_finite_values_only(events, "gen_cos_theta_hat_e", is_real_gen_e_tau, gen_cos_theta_hat_e)
-    events = fill_real_finite_values_only(events, "gen_cos_theta_hat_m", is_real_gen_muon_tau, gen_cos_theta_hat_m)
-    
-    events = fill_real_finite_values_only(events, "gen_cos_omega_m", is_real_gen_muon_tau, gen_cos_omega_m)
-    events = fill_real_finite_values_only(events, "gen_cos_omega_e", is_real_gen_e_tau, gen_cos_omega_e)
-    
-    events = fill_real_finite_values_only(events, "gen_cos_omega_m_new", is_real_gen_muon_tau, gen_cos_omega_m_new)
-    events = fill_real_finite_values_only(events, "gen_cos_omega_e_new", is_real_gen_e_tau, gen_cos_omega_e_new)
+    def calculate_observables(
+        events: ak.Array,
+        matched_lepton: ak.Array,
+        matched_lepton_tau: ak.Array,
+        positive_mask: ak.Array,
+        negative_mask: ak.Array,
+        flavor: str="e",
+        is_gen: bool=True,
+        prefix: str = "",
+    ):
+        z = matched_lepton.energy / matched_lepton_tau.energy
+        beta_lepton = matched_lepton.pvec.absolute() / matched_lepton.energy
+        matched_lepton_p = np.sqrt(matched_lepton_tau.px**2 + matched_lepton_tau.py**2 + matched_lepton_tau.pz**2)
+        beta_lepton_tau = matched_lepton_p / matched_lepton_tau.energy
+        
+        is_real_lepton_tau = matched_lepton_tau.pt != EMPTY_FLOAT
+        
+        #pos_mask=ak.fill_none(ak.flatten(events.Electron.mass, axis=1), EMPTY_FLOAT)>=-1 & <=1
+        #pos_ele_mass=(ak.fill_none(ak.flatten(events.Electron.mass, axis=1), EMPTY_FLOAT))[pos_mask]
+        lepton_mass = 0
+        tau_mass = 0
 
-    events = set_ak_column_f32(events, "gen_z_pos_e", ak.where((is_real_gen_e_tau)&positive_mask, gen_z_e, EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "gen_z_neg_e", ak.where((is_real_gen_e_tau)&negative_mask, gen_z_e, EMPTY_FLOAT))
+        if is_gen:
+            # if we study generator level stuff, use pdg mass for leptons
+            tau_mass = 1.77686
+            if flavor == "e":
+                lepton_mass = 0.00051099895
+            elif flavor == "m":
+                lepton_mass = 0.1056583755
+            else:
+                raise ValueError(f"Cannot calculate spin observables for flavor {flavor}, only 'e' and 'mu' allowed")
+        else:
+            lepton_mass = matched_lepton.mass
+            tau_mass = matched_lepton_tau.mass
+        
+        a = lepton_mass/tau_mass
+        cos_theta_hat = (2*z - 1 - a**2)/(beta_lepton_tau*(1-a**2))
+        cos_omega = (1 - a**2 + (1 + a**2)*cos_theta_hat)/(1 + a**2 + (1 - a**2)*cos_theta_hat)
+        
+        gamma_lepton_tau =1/np.sqrt(1-beta_lepton_tau**2)
+        sin_theta = np.sqrt(1-cos_theta_hat**2)
+        cos_omega_new = (1 - a**2 + (1 + a**2)*beta_lepton_tau*cos_theta_hat)/np.sqrt((cos_theta_hat**2 + gamma_lepton_tau**(-2)*sin_theta**2)*(1-a**2)**2+2*(1-a**4)*beta_lepton_tau*cos_theta_hat+beta_lepton_tau**2*(1+a**2)**2)
+        
+        if is_gen and prefix == "":
+            prefix = "gen_"
+        
+        events = fill_real_finite_values_only(events, f"{prefix}z_{flavor}", is_real_lepton_tau, z)
 
-    events = set_ak_column_f32(events, "gen_z_pos_m", ak.where((is_real_gen_muon_tau)&positive_mask_mu, gen_z_m, EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "gen_z_neg_m", ak.where((is_real_gen_muon_tau)&negative_mask_mu, gen_z_m, EMPTY_FLOAT))    
+        events = fill_real_finite_values_only(events, f"{prefix}cos_theta_hat_{flavor}", is_real_lepton_tau, cos_theta_hat)
+        
+        events = fill_real_finite_values_only(events, f"{prefix}cos_omega_{flavor}", is_real_lepton_tau, cos_omega)
+        
+        events = fill_real_finite_values_only(events, f"{prefix}cos_omega_{flavor}_new", is_real_lepton_tau, cos_omega_new)
+
+        events = set_ak_column_f32(events, f"{prefix}z_pos_{flavor}", ak.where((is_real_lepton_tau)&positive_mask, z, EMPTY_FLOAT))
+        events = set_ak_column_f32(events, f"{prefix}z_neg_{flavor}", ak.where((is_real_lepton_tau)&negative_mask, z, EMPTY_FLOAT))
+        return events
+    
+    events = calculate_observables(
+        events,
+        gen_matched_ele,
+        gen_matched_ele_tau,
+        positive_mask=positive_mask,
+        negative_mask=negative_mask,
+        flavor="e",
+        is_gen=True
+    )
+    events = calculate_observables(
+        events,
+        gen_matched_muon,
+        gen_matched_muon_tau,
+        positive_mask=positive_mask_mu,
+        negative_mask=negative_mask_mu,
+        flavor="m",
+        is_gen=True
+    )
+    
+    # calculate detector observables
+    events = calculate_observables(
+        events,
+        events.ElectronFromTau,
+        events.RecoTauEle,
+        positive_mask=positive_mask,
+        negative_mask=negative_mask,
+        flavor="e",
+        is_gen=False,
+        prefix="ideal_reco_",
+    )
+    events = calculate_observables(
+        events,
+        events.MuonFromTau,
+        events.RecoTauMuon,
+        positive_mask=positive_mask_mu,
+        negative_mask=negative_mask_mu,
+        flavor="m",
+        is_gen=False,
+        prefix="ideal_reco_",
+    )
     return events
+
+@spin_observables.init
+def spin_observables_init(self):
+    cols = {
+        "z{version}".format(version=v)
+        for v in ("", "_pos", "_neg")
+    }
+    
+    cols = {x+"_{flavor}" for x in cols}
+    
+    cols |= {
+        "cos_omega_{flavor}",
+        "cos_theta_hat_{flavor}",
+        "cos_omega_{flavor}_new",
+    }
+    self.produces |= ({
+        "{prefix}{x}".format(prefix = p, x = x.format(flavor=f))
+        for x in cols
+        for p in ("gen_", "ideal_reco_",)
+        for f in ("e", "m")    
+    })
     

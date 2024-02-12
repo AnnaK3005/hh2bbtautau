@@ -584,6 +584,85 @@ def add_variables(config: od.Config) -> None:
         x_title=r"$\tau^{+}$ DeepTau output (vs jet)",
     ) 
     
+    config.add_variable(
+        name="regressed_nu1_px",
+        expression="tautauNN_regression_output[:, 0]",
+        binning=(50, 0, 300),
+        x_title=r"regressed \nu_{1} p_{x}",
+    )
+    
+    config.add_variable(
+        name="ideal_reco_z_e",
+        expression="ideal_reco_z_e",
+        binning=(40, 0, 1),
+        x_title=r"$z_{e}^{ideal reco}$",
+    )
+    
+    config.add_variable(
+        name="ideal_reco_z_m",
+        expression="ideal_reco_z_m",
+        binning=(40, 0, 1),
+        x_title=r"$z_{m}^{ideal reco}$",
+    )
+    
+    config.add_variable(
+        name="ideal_reco_z_neg_e",
+        expression="ideal_reco_z_neg_e",
+        binning=(40, 0, 1),
+        x_title=r"$z_{e}^{ideal reco, -}$",
+    )
+    
+    config.add_variable(
+        name="ideal_reco_z_pos_e",
+        expression="ideal_reco_z_pos_e",
+        binning=(40, 0, 1),
+        x_title=r"$z_{e}^{ideal reco, +}$",
+    )
+    
+    config.add_variable(
+        name="ideal_reco_z_neg_m",
+        expression="ideal_reco_z_neg_m",
+        binning=(40, 0, 1),
+        x_title=r"$z_{m}^{ideal reco, -}$",
+    )
+    
+    config.add_variable(
+        name="ideal_reco_z_pos_m",
+        expression="ideal_reco_z_pos_m",
+        binning=(40, 0, 1),
+        x_title=r"$z_{m}^{ideal reco, +}$",
+    )
+    
+    config.add_variable(
+        name="ideal_reco_tau_ele_energy",
+        expression="RecoTauEle.energy",
+        binning=(60, 0, 400),
+        x_title=r"$\tau_{e}^{ideal reco}$",
+    )
+    
+    config.add_variable(
+        name="ideal_reco_tau_mu_energy",
+        expression="RecoTauMuon.energy",
+        binning=(60, 0, 400),
+        x_title=r"$\tau_{m}^{ideal reco}$",
+    )
+    
+    config.add_variable(
+        name="ideal_reco_nu_ele_energy",
+        expression="IdealNeutrinoEle.energy",
+        binning=(60, 0, 400),
+        x_title=r"$\nu_{e}^{ideal reco} energy$",
+    )
+    
+    config.add_variable(
+        name="ideal_reco_nu_mu_energy",
+        expression="IdealNeutrinoMuon.energy",
+        binning=(60, 0, 400),
+        x_title=r"$\nu_{m}^{ideal reco} energy$",
+    )
+
+
+
     # weights
     config.add_variable(
         name="mc_weight",
@@ -603,6 +682,7 @@ def add_variables(config: od.Config) -> None:
         binning=(40, 0, 2),
         x_title="Normalized pileup weight",
     )
+
     #config.add_variable(
     #    name="btag_weight",
     #    expression="btag_weight",
